@@ -8,23 +8,23 @@ import java.util.List;
 import static vavi.sound.bd.Utils.params;
 
 
-class IOIPeriodEntry {
-    float period;
-
-    int refCount;
-
-    float highestEnergy;
-}
-
-class IOIStats {
-    static final int IOISTATS_HISTLEN = 2000;
-
-    float[] ioiHists = new float[IOISTATS_HISTLEN];
-
-    List<IOIPeriodEntry> dominantIOIs;
-}
-
 class IOIStatCollector {
+
+    static class IOIPeriodEntry {
+        float period;
+
+        int refCount;
+
+        float highestEnergy;
+    }
+
+    static class IOIStats {
+        static final int IOISTATS_HISTLEN = 2000;
+
+        float[] ioiHists = new float[IOISTATS_HISTLEN];
+
+        List<IOIPeriodEntry> dominantIOIs;
+    }
 
     static final int IOISTATS_PARZEN_HALF_WINDOW_SIZE = 5;
 
@@ -42,9 +42,7 @@ class IOIStatCollector {
         maxIOI = 0;
     }
 
-    int initialize(IOIStats stats) {
-        int hr = Utils.S_OK;
-
+    void initialize(IOIStats stats) {
         // Reset onset list
         onsets.clear();
 
@@ -60,13 +58,9 @@ class IOIStatCollector {
 
             parzenWindow[i] = (float) Math.exp(-x * x / var);
         }
-
-        return hr;
     }
 
-    int executeStep(float sample, IOIStats stats) {
-        int hr = Utils.S_OK;
-
+    void executeStep(float sample, IOIStats stats) {
         lastOnsetDelay += 1;
 
         if (sample > 0) {
@@ -77,24 +71,20 @@ class IOIStatCollector {
             assert maxIOI < IOIStats.IOISTATS_HISTLEN;
 
             // Increment onset times by newest IOI
-            for (int i = 0; i < onsets.size(); i++) {
-                onsets.set(i, onsets.get(i) + lastOnsetDelay);
-            }
+            onsets.replaceAll(i -> i + lastOnsetDelay);
 
             // Add newest IOI to queue
             onsets.add(0, lastOnsetDelay);
 
             // Look through list for IOIs that are greater than MaxIOI and remove
-            if (onsets.size() > 0) {
-                while (onsets.get(onsets.size() - 1) > maxIOI) {
-                    onsets.remove(onsets.size() - 1);
-                }
+            while (onsets.get(onsets.size() - 1) > maxIOI) {
+                onsets.remove(onsets.size() - 1);
             }
 
             // Update the IOIStats Histogram
             // Decay Histogram - by amount proportional to passed time
             // lastOnsetDelay * period equals time passed since last onset
-            float decay = (float) Math.pow(0.5, (lastOnsetDelay / params.onsetSamplingRate) / params.ioiHistHalflife);
+            float decay = (float) Math.pow(0.5, ((float) lastOnsetDelay / params.onsetSamplingRate) / params.ioiHistHalflife);
             for (int i = 0; i < IOIStats.IOISTATS_HISTLEN; i++) {
                 stats.ioiHists[i] *= decay;
             }
@@ -111,18 +101,15 @@ class IOIStatCollector {
                 }
             }
 
-            //////
             // Find Peak IOIs
-            hr = findDominantIOIs(1f / params.onsetSamplingRate, stats);
+            findDominantIOIs(1f / params.onsetSamplingRate, stats);
 
             // Reset last delay...
             lastOnsetDelay = 0;
         }
-
-        return hr;
     }
 
-    protected int findDominantIOIs(float period, IOIStats stats) {
+    protected void findDominantIOIs(float period, IOIStats stats) {
         // Empty the list and regenerate
         stats.dominantIOIs.clear();
 
@@ -161,7 +148,5 @@ class IOIStatCollector {
                 }
             }
         }
-
-        return Utils.S_OK;
     }
 }

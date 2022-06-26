@@ -29,33 +29,34 @@ class DataStream {
         channels = 1;
     }
 
-    // Create stream from existing stream or data
-    public int createData(int bitsPerSample, int sampleRate, int samples, boolean normalized) {
+    /**
+     * Create stream from existing stream or data
+     * @throws IllegalStateException already data created
+     */
+    public void createData(int bitsPerSample, int sampleRate, int samples, boolean normalized) {
         if (isValid())
-            return Utils.E_FAIL;
-
+            throw new IllegalStateException("already data created");
         if ((bitsPerSample % 8) != 0)
-            throw new IllegalArgumentException("bitsPerSample");
-
+            throw new IllegalArgumentException("bitsPerSample is not multiple of 8");
         if (normalized && (bitsPerSample < 32))
-            throw new IllegalArgumentException("normalized or bitsPerSample");
+            throw new IllegalArgumentException("normalized bitsPerSample is under 32");
 
         this.data = ByteBuffer.allocate(samples * (bitsPerSample / 8));
         this.bitsPerSample = bitsPerSample;
         this.sampleRate = sampleRate;
         this.samples = samples;
         this.normalized = normalized;
-        return Utils.S_OK;
     }
 
-    public int createData(final DataStream dataStreamCopyFrom) {
-        if (null != dataStreamCopyFrom)
-            return createData(dataStreamCopyFrom.getBitsPerSample(),
-                              dataStreamCopyFrom.getSampleRate(),
-                              dataStreamCopyFrom.getNumSamples(),
-                              dataStreamCopyFrom.isNormalized());
+    /** @throws IllegalArgumentException copyFrom is null */
+    public void createData(final DataStream copyFrom) {
+        if (null != copyFrom)
+            createData(copyFrom.getBitsPerSample(),
+                       copyFrom.getSampleRate(),
+                       copyFrom.getNumSamples(),
+                       copyFrom.isNormalized());
         else
-            throw new IllegalArgumentException("dataStreamCopyFrom");
+            throw new IllegalArgumentException("copyFrom is null");
     }
 
     public void releaseData() {
@@ -66,11 +67,11 @@ class DataStream {
     }
 
     // Normalize and Denormalize - assumes use of float for normalized version
-    public int normalize() {
-        int hr = Utils.S_OK;
-
-        if (isNormalized() || !isValid())
-            return Utils.E_FAIL;
+    public void normalize() {
+        if (!isValid())
+            throw new IllegalStateException("not valid");
+        if (isNormalized())
+            throw new IllegalStateException("already normalized");
 
         ByteBuffer bb = ByteBuffer.allocate(4 * getNumSamples());
         FloatBuffer data = bb.asFloatBuffer();
@@ -91,19 +92,15 @@ class DataStream {
             this.data = bb;
             normalized = true;
             bitsPerSample = 4 * 8;
-            hr = Utils.S_OK;
         } else {
-            hr = Utils.E_FAIL;
         }
-
-        return hr;
     }
 
-    public int deNormalize(int bitsPerSample) {
-        int hr = Utils.S_OK;
-
-        if (!isNormalized() || !isValid())
-            return Utils.E_FAIL;
+    public void denormalize(int bitsPerSample) {
+        if (!isValid())
+            throw new IllegalStateException("not valid");
+        if (!isNormalized())
+            throw new IllegalStateException("not normalized");
 
         ByteBuffer bb = ByteBuffer.allocate(getNumSamples() * (bitsPerSample / 8));
         boolean success = false;
@@ -123,12 +120,8 @@ class DataStream {
             data = bb;
             normalized = false;
             this.bitsPerSample = bitsPerSample;
-            hr = Utils.S_OK;
         } else {
-            hr = Utils.E_FAIL;
         }
-
-        return hr;
     }
 
     public int getNumChannels() {
@@ -168,24 +161,18 @@ class DataStream {
     }
 
     // Reallocate stream to new length - shorter or longer, pads with zeros
-    public int reallocate(int samples) {
+    public void reallocate(int samples) {
         // Nothing to do
         if (samples == this.samples)
-            return Utils.S_OK;
-
-        int hr = Utils.E_FAIL;
+            return;
 
         if (samples < this.samples) {
             // Request for shorter data length, just change the # of samples and be
             // done with it, no need for reallocation
             this.samples = samples;
-            hr = Utils.S_OK;
         } else {
             // Copy over data and pad end with zeros - not quite efficient but who cares...
             data = ByteBuffer.allocate(samples * (bitsPerSample / 8));
-            hr = Utils.S_OK;
         }
-
-        return hr;
     }
 }

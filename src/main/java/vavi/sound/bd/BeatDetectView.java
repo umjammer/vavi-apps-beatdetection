@@ -9,52 +9,65 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFileChooser;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 
 
-class BeatDetectView extends JPanel implements BeatDetect.View {
+class BeatDetectView extends JPanel {
     static final int RULER_HEIGHT = 20;
 
-//  ON_COMMAND(ID_APP_ABOUT, OnAppAbout)
-//  ON_COMMAND(ID_FILE_NEW, OnFileNew)
-//  ON_COMMAND(ID_FILE_OPEN, OnFileOpen)
-    JButton ID_VIEW_ZOOMIN = new JButton(); //.setAction(() -> { OnViewZoomIn(); });
+    JMenuItem ID_APP_ABOUT = new JMenuItem();
+    JMenuItem ID_FILE_NEW =  new JMenuItem();
+    JMenuItem ID_FILE_OPEN = new JMenuItem();
 
-    JButton ID_VIEW_ZOOMOUT = new JButton(); // OnViewZoomOut
+    JButton ID_VIEW_ZOOMIN = new JButton();
+    JButton ID_VIEW_ZOOMOUT = new JButton();
+    JButton IDC_VIEW_INPUT_CHECK = new JButton();
+    JButton IDC_VIEW_ONSET_CHECK = new JButton();
+    JButton IDC_VIEW_ONSET2_CHECK = new JButton();
+    JButton IDC_VIEW_BEATOUT_CHECK = new JButton();
+    JButton IDC_VIEW_TEMPOOUT_CHECK = new JButton();
+    JButton IDC_VIEW_PERIODOUT_CHECK = new JButton();
+    JButton IDC_VIEW_INFOOUT_CHECK = new JButton();
 
-    JButton IDC_VIEW_INPUT_CHECK = new JButton(); //, OnViewStreamChange)
+    BeatDetectDoc doc;
 
-    JButton IDC_VIEW_ONSET_CHECK = new JButton(); //, OnViewStreamChange)
+    protected BeatDetectView(BeatDetectDoc doc) {
+        this.doc = doc;
 
-    JButton IDC_VIEW_ONSET2_CHECK = new JButton(); //, OnViewStreamChange)
-
-    JButton IDC_VIEW_BEATOUT_CHECK = new JButton(); //, OnViewStreamChange)
-
-    JButton IDC_VIEW_TEMPOOUT_CHECK = new JButton(); //, OnViewStreamChange)
-
-    JButton IDC_VIEW_PERIODOUT_CHECK = new JButton(); //, OnViewStreamChange)
-
-    JButton IDC_VIEW_INFOOUT_CHECK = new JButton(); //, OnViewStreamChange)
-
-    protected BeatDetectView() {
         zoom = 0.016;
 
-        MainFrame mainFrame = BeatDetect.theApp.mainFrame;
-        JPanel dialogBar = mainFrame.getDialogBar();
+//        JPanel dialogBar = mainFrame.getDialogBar();
+
+        ID_APP_ABOUT.addActionListener(this::onAppAbout);
+        ID_FILE_NEW.addActionListener(this::onSaveDocument);
+        ID_FILE_OPEN.addActionListener(this::onOpenDocument);
 
         IDC_VIEW_INPUT_CHECK.setEnabled(true);
+        IDC_VIEW_INPUT_CHECK.addActionListener(this::onViewStreamChange);
         IDC_VIEW_ONSET_CHECK.setEnabled(true);
+        IDC_VIEW_ONSET_CHECK.addActionListener(this::onViewStreamChange);
         IDC_VIEW_BEATOUT_CHECK.setEnabled(true);
+        IDC_VIEW_BEATOUT_CHECK.addActionListener(this::onViewStreamChange);
         IDC_VIEW_TEMPOOUT_CHECK.setEnabled(true);
+        IDC_VIEW_TEMPOOUT_CHECK.addActionListener(this::onViewStreamChange);
         IDC_VIEW_PERIODOUT_CHECK.setEnabled(true);
+        IDC_VIEW_PERIODOUT_CHECK.addActionListener(this::onViewStreamChange);
 
-        onViewStreamChange();
+        IDC_VIEW_ONSET2_CHECK.addActionListener(this::onViewStreamChange);
+        IDC_VIEW_INFOOUT_CHECK.addActionListener(this::onViewStreamChange);
+
+        ID_VIEW_ZOOMIN.addActionListener(this::onViewZoomIn);
+        ID_VIEW_ZOOMOUT.addActionListener(this::onViewZoomOut);
+
+        onViewStreamChange(null);
     }
 
     public void paint(Graphics g) {
@@ -65,9 +78,7 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         getViewRect(viewRect);
 
         List<DataStream> streams = new ArrayList<>();
-        int hr = createStreamsList(streams);
-        if (Utils.S_OK == hr) {
-            //////////////////
+        if (createStreamsList(streams)) {
             // Draw Time Ruler
             Rectangle rulerRect = viewRect;
             rulerRect.y = rulerRect.y;
@@ -75,7 +86,6 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
             viewRect.y = rulerRect.y + rulerRect.height;
             drawTimeRuler(g2d, rulerRect);
 
-            //////////////////
             // Draw Data Streams
 
             // Determine rects for drawing streams
@@ -94,7 +104,8 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         }
     }
 
-    protected double zoom; // Seconds per pixel
+    /** Seconds per pixel */
+    protected double zoom;
 
     protected boolean scrollError;
 
@@ -108,7 +119,7 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         drawRect.width = 1;
         g2d.fillRect(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
-        // Hurt Casting! ***************************************************************
+        // Hurt Casting!
         // Assume Float
         float[] data = stream.getFloatData();
 
@@ -131,9 +142,9 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         float min = 1;
         float max = -1;
         boolean next = false;
-        for (int sam = startSample; sam < endSample; sam++) {
+        for (int i = startSample; i < endSample; i++) {
             // Draw and go to the next pixel
-            while (sam > (int) samNextPixel) {
+            while (i > (int) samNextPixel) {
                 // Draw this pixel
                 drawRect.x = x;
                 drawRect.width = 1;
@@ -166,10 +177,10 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
                 next = false;
             }
 
-            if (data[sam] > max)
-                max = data[sam];
-            if (data[sam] < min)
-                min = data[sam];
+            if (data[i] > max)
+                max = data[i];
+            if (data[i] < min)
+                min = data[i];
         }
     }
 
@@ -182,14 +193,11 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         rect.width = totalSize.width;
     }
 
-    int createStreamsList(List<DataStream> list) {
-        BeatDetectDoc doc = BeatDetect.theApp.doc;
-
+    boolean createStreamsList(List<DataStream> list) {
         if (null == list)
             throw new IllegalArgumentException("pList");
 
-        MainFrame mainFrame = BeatDetect.theApp.mainFrame;
-        JPanel dialogBar = mainFrame.getDialogBar();
+//        JPanel dialogBar = mainFrame.getDialogBar();
 
         // Clear out list
         list.clear();
@@ -222,10 +230,7 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
             list.add(doc.beatInfo);
         }
 
-        if (!list.isEmpty())
-            return Utils.S_OK;
-        else
-            return Utils.S_FALSE;
+        return !list.isEmpty();
     }
 
     void drawTimeRuler(Graphics2D g2d, Rectangle rect) {
@@ -257,30 +262,29 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         }
     }
 
-    void onViewZoomIn() {
+    void onViewZoomIn(ActionEvent ev) {
         // Messy crap, but this is not a pro app...
         if (zoom > 0.0001) {
             zoom = zoom / 2;
-            onViewStreamChange();
+            onViewStreamChange(ev);
         }
     }
 
-    void onViewZoomOut() {
+    void onViewZoomOut(ActionEvent ev) {
         // Messy crap, but this is not a pro app...
         if (zoom < 0.1) {
             zoom = zoom * 2;
-            onViewStreamChange();
+            onViewStreamChange(ev);
         }
     }
 
-    void onViewStreamChange() {
+    void onViewStreamChange(ActionEvent ev) {
         // Update the view with changes in the streams we are to show
         List<DataStream> streams = new ArrayList<>();
 
         double duration = 0;
 
-        int hr = createStreamsList(streams);
-        if (Utils.S_OK == hr) {
+        if (createStreamsList(streams)) {
             for (DataStream stream : streams) {
                 if (stream.getDuration() > duration)
                     duration = stream.getDuration();
@@ -301,7 +305,7 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
         scrollError = size.width > 32767;
     }
 
-    void onAppAbout() {
+    void onAppAbout(ActionEvent ev) {
         JDialog aboutDialog = new JDialog();
         aboutDialog.setModal(true);
         aboutDialog.setVisible(true);
@@ -316,25 +320,38 @@ class BeatDetectView extends JPanel implements BeatDetect.View {
 
     JPanel working = new JPanel(); // "IDD_WORKING"
 
-    @Override
-    public void showWaiting() {
-        working.setVisible(true);
-    }
-
-    @Override
-    public void hideWaiting() {
-        working.setVisible(false);
-    }
-
-    @Override
-    public String chooseFile() {
+    String chooseFile() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.showOpenDialog(null);
         return fileChooser.getSelectedFile().getPath();
     }
 
-    @Override
-    public void showError(Throwable t) {
-        t.printStackTrace();
+    void onOpenDocument(ActionEvent ev) {
+        try {
+            String filename = chooseFile();
+            working.setVisible(true);
+            doc.onOpenDocument(filename);
+            working.setVisible(false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    void onSaveDocument(ActionEvent ev) {
+        try {
+            String filename = chooseFile();
+            doc.onSaveDocument(filename);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    void onSaveOnsets(ActionEvent ev) {
+        try {
+            String filename = chooseFile();
+            doc.onSaveOnsets(filename);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

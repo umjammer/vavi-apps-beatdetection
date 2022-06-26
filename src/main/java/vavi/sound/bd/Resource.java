@@ -5,7 +5,7 @@
 package vavi.sound.bd;
 
 
-class Resources {
+class Resource {
     public static final int IDD_ABOUTBOX = 100;
     public static final int IDR_MAINFRAME = 128;
     public static final int IDR_BEATDETYPE = 129;

@@ -19,24 +19,19 @@ class RealTimeStage {
 
     static final boolean FIND_BEATS = true;
 
-    public RealTimeStage() {
-    }
-
     /**
      * @param in Onset stream, constant tempo
      * @param out Beat stream, constant tempo
      * @param tempo Sampling period, constant tempo
      * @param beatPeriod Winning loop period, constant tempo
      * @param beatInfo Extra Info
+     * @throws IllegalStateException creation failed
      */
-    public int createBeatStream(DataStream in,
+    public void createBeatStream(DataStream in,
                                 DataStream out,
                                 DataStream tempo,
                                 DataStream beatPeriod,
                                 DataStream beatInfo) throws IOException {
-        int hr = Utils.S_OK;
-
-        /////////
         // Debug
         FileWriter writer = new FileWriter();
         if (OUTPUT_ONSETS) {
@@ -45,40 +40,25 @@ class RealTimeStage {
             writer.open("ActualBeats.m", true);
         }
 
-        ////////
         // Create streams with same info as input stream
-        hr = out.createData(in);
-        if (Utils.FAILED(hr))
-            return hr;
-        hr = tempo.createData(in);
-        if (Utils.FAILED(hr))
-            return hr;
-        hr = beatPeriod.createData(in);
-        if (Utils.FAILED(hr))
-            return hr;
-        hr = beatInfo.createData(in);
-        if (Utils.FAILED(hr))
-            return hr;
+        out.createData(in);
+        tempo.createData(in);
+        beatPeriod.createData(in);
+        beatInfo.createData(in);
 
         // Setup Param specifying onset input sampling rate
         assert params.onsetSamplingRate == in.getSampleRate();
 
         if (FIND_BEATS) {
-            ////////
             // Components Setup
-            IOIStats ioiStats = new IOIStats();
+            IOIStatCollector.IOIStats ioiStats = new IOIStatCollector.IOIStats();
 
             IOIStatCollector ioiCollector = new IOIStatCollector();
-            hr = ioiCollector.initialize(ioiStats);
-            if (Utils.FAILED(hr))
-                return hr;
+            ioiCollector.initialize(ioiStats);
 
             NodeControl nodeControl = new NodeControl();
-            hr = nodeControl.initialize();
-            if (Utils.FAILED(hr))
-                return hr;
+            nodeControl.initialize();
 
-            ////////
             // Execute
 
             // Create sample "buffer" - points to actual onset stream data but could theoretically be
@@ -89,7 +69,6 @@ class RealTimeStage {
             Node bestNode = null;
 
             while (curSam < in.getNumSamples()) {
-                /////////////////
                 // Realtime Step
 
                 // Track Performance
@@ -97,31 +76,28 @@ class RealTimeStage {
                     params.trackPerformance = true;
 
                 // IOI Stats Collector - pass in only current sample
-                hr = ioiCollector.executeStep(sampleBuffer[0], ioiStats);
+                ioiCollector.executeStep(sampleBuffer[0], ioiStats);
 
                 // Node Control
-                hr = nodeControl.executeStep(sampleBuffer, ioiStats);
+                nodeControl.executeStep(sampleBuffer, ioiStats);
                 // Find best node
                 bestNode = nodeControl.bestNode();
 
-                /////////////////////
                 // Update and Output
                 if (null != bestNode) {
                     // Output Samples
                     out.getData().asFloatBuffer().put(curSam, bestNode.beatOutput());
                     tempo.getData()
                             .asFloatBuffer()
-                            .put(curSam, (bestNode.varSampler().samplePeriod() - Utils.params.varSamplerStartPeriod) * 1000);//(bestNode.varSampler().samplePeriod() - params.varSamplerStartPeriod) * 1000;//
+                            .put(curSam, (bestNode.varSampler().samplePeriod() - Utils.params.samplerStartPeriod) * 1000);//(bestNode.varSampler().samplePeriod() - params.samplerStartPeriod) * 1000;//
                     beatPeriod.getData().asFloatBuffer().put(curSam, bestNode.period());//bestNode.varSampler().flE * 1000;//bestNode.varSampler().m_flOffset * 100;//
-                    beatInfo.getData().asFloatBuffer().put(curSam, bestNode.loopComplete() ? 10 : 0);//bestNode.varSampler().fldE * 1000;//(bestNode.varSampler().IdealSamplePeriod() - params.varSamplerStartPeriod) * 1000;//bestNode.csnOutput();//bestNode.varSampler().idealSamplePeriod() - bestNode.varSampler().samplePeriod()) * 1000;//
+                    beatInfo.getData().asFloatBuffer().put(curSam, bestNode.loopComplete() ? 10 : 0);//bestNode.varSampler().fldE * 1000;//(bestNode.varSampler().IdealSamplePeriod() - params.samplerStartPeriod) * 1000;//bestNode.csnOutput();//bestNode.varSampler().idealSamplePeriod() - bestNode.varSampler().samplePeriod()) * 1000;//
                 } else {
                     out.getData().asFloatBuffer().put(curSam, -1);
                     tempo.getData().asFloatBuffer().put(curSam, 0);
                     beatPeriod.getData().asFloatBuffer().put(curSam, 0);
                     beatInfo.getData().asFloatBuffer().put(curSam, 0);
                 }
-
-                /////////////////////
 
 //              if (curSam % 500 == 0) {
 //                  String label = String.format("IOIHist_%d", curSam);
@@ -132,7 +108,6 @@ class RealTimeStage {
                 curSam++;
             }
 
-            ///////////////////////////////////////////////////
             // Calculate Performance Measures
             if (null != bestNode) {
                 Node longestNode = bestNode;
@@ -146,18 +121,17 @@ class RealTimeStage {
                 if (!BeatDetect.theApp.automate) {
                     float bpm = 60 / longestNode.avgPeriod;
                     float percentTime = (float) (longestNode.selectedTime / (in.getDuration() - params.trackBeginOffset));
-                    String message;
-                    message = String.format("%% Time = %.2f\n%.2f BPM\n%.2f Error\n%d Beat Re-eval\n%d Node Changes",
+                    String message = String.format("%% Time = %.2f\n%.2f BPM\n%.2f Error\n%d Beat Re-eval\n%d Node Changes",
                                            percentTime * 100,
                                            bpm,
                                            Math.sqrt(longestNode.predictionError),
                                            longestNode.beatReEvaluations,
                                            params.trackChangeNodeCount);
-                    new JOptionPane(message).setVisible(true);
+                    JOptionPane.showConfirmDialog(null, message);
                 }
             }
 
-            ///////////////////////////////////////////////////
+            //
 
             FileWriter writer2 = new FileWriter();
             writer2.open("Beats.m", true);
@@ -180,7 +154,5 @@ class RealTimeStage {
         }
 
         //WriteFloatArrayToMFile("OnsetStream.m", "OnsetStream", in.getFloatData(), in.getNumSamples());
-
-        return hr;
     }
 }

@@ -9,6 +9,8 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
@@ -22,34 +24,26 @@ import vavi.util.win32.WAVE;
  * AudioStream. 
  */
 class AudioStream extends DataStream {
-    public AudioStream() {
-    }
 
-    public int loadFromWaveFile(String filename) throws IOException {
-        int hr = Utils.S_OK;
-
+    public void loadFromWaveFile(String filename) throws IOException {
         // Cannot load wave file if memory already allocated for another wave
-        if (null != data)
-            return Utils.E_FAIL;
+        if (null == data)
+            throw new IllegalStateException("null data");
 
-        WAVE wave = (WAVE) WAVE.readFrom(new FileInputStream(filename));
-        byte[] data = WAVE.data.class.cast(wave.findChildOf(WAVE.data.class)).getWave();
+        WAVE wave = WAVE.readFrom(Files.newInputStream(Paths.get(filename)), WAVE.class);
+        byte[] data = wave.findChildOf(WAVE.data.class).getWave();
         this.data = ByteBuffer.wrap(data);
 
-        WAVE.fmt format = WAVE.fmt.class.cast(wave.findChildOf(WAVE.fmt.class));
+        WAVE.fmt format = wave.findChildOf(WAVE.fmt.class);
         bitsPerSample = format.getSamplingBits();
         channels = format.getNumberChannels();
         samples = data.length / ((bitsPerSample / 8) * channels);
-
-        return hr;
     }
 
-    public int saveToWaveFile(String filename) throws IOException {
-        int hr = Utils.S_OK;
-
+    public void saveToWaveFile(String filename) throws IOException {
         // If no data, cannot save
         if (null == data)
-            return Utils.E_FAIL;
+            throw new IllegalStateException("null data");
 
         AudioFormat format = new AudioFormat(AudioFormat.Encoding.PCM_SIGNED,
                                              getSampleRate(),
@@ -62,8 +56,6 @@ class AudioStream extends DataStream {
                                                     format,
                                                     data.array().length);
 System.err.println("l1: " + data.array().length + ", l2: " +  getNumChannels() * getBitsPerSample() / 8 * getNumSamples());
-        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, new FileOutputStream(filename));
-
-        return hr;
+        AudioSystem.write(ais, AudioFileFormat.Type.WAVE, Files.newOutputStream(Paths.get(filename)));
     }
 }

@@ -49,9 +49,7 @@ class NodeVarSampler {
         this.node = node;
     }
 
-    public int Initialize(float samplerPeriod) {
-        int hr = Utils.S_OK;
-
+    public void initialize(float samplerPeriod) {
         // Sampler Init
         period = samplerPeriod;
         idealPeriod = samplerPeriod;
@@ -71,13 +69,9 @@ class NodeVarSampler {
         // Variable Sampler Init
         foundBeat = false;
         offset = 0;
-
-        return hr;
     }
 
-    public int processInput(float[] inputBuffer, boolean[] sampleComplete, float[] sample) {
-        int hr = Utils.S_OK;
-
+    public void processInput(float[] inputBuffer, boolean[] sampleComplete, float[] sample) {
         // Onset?
         if (inputBuffer[0] > 0) {
             lastOnset = curSam;
@@ -91,7 +85,6 @@ class NodeVarSampler {
         if (curSam > endSam) {
             sample[0] = 0;
 
-            /////////////////////////////
             // Calculate fuzzy onset energy
 
             float fuzzyWidth = params.fuzzyOnsetWidth * params.onsetSamplingRate / 2;
@@ -136,13 +129,10 @@ class NodeVarSampler {
                 }
             }
 
-            /////////////////////////////
             // Variable Sampler Execution
-            int hrTest = adjustSamplingRate();
-            if (hrTest == Utils.S_OK)
+            if (adjustSamplingRate())
                 node.adjustPeriod();
 
-            /////////////////////////////
             // Update variables, continue
             beginSam = endSam;
             endSam += period * params.onsetSamplingRate;
@@ -151,8 +141,6 @@ class NodeVarSampler {
             // Not yet complete
             sampleComplete[0] = false;
         }
-
-        return hr;
     }
 
     public float samplePeriod() {
@@ -174,8 +162,8 @@ class NodeVarSampler {
 
     public float differentialError;
 
-    protected int adjustSamplingRate() {
-        int hr = Utils.S_FALSE;
+    protected boolean adjustSamplingRate() {
+        boolean result = false;
 
         // Get the current beat output (remember, we have not yet sent this sample out the door
         // so the beat output given here corresponds to the current range of samples)
@@ -211,16 +199,15 @@ class NodeVarSampler {
 
                 offset = Math.abs(dist1) < Math.abs(dist2) ? dist1 : dist2;
             } else if ((searchDist > (recentOnset - recentBeat))
-                       || (searchDist > (params.varSamplerMaxErrorTime * params.onsetSamplingRate))) {
+                       || (searchDist > (params.samplerMaxErrorTime * params.onsetSamplingRate))) {
                 // Searched too long, time to adjust
                 adjust = true;
 
                 offset = recentOnset - recentBeat;
             }
 
-            //////////////////
             // Time to adjust?
-            if (adjust && Math.abs(offset / params.onsetSamplingRate) < params.varSamplerMaxErrorTime) {
+            if (adjust && Math.abs(offset / params.onsetSamplingRate) < params.samplerMaxErrorTime) {
                 // Track Performance
                 if (node.selected) {
                     node.predictionError += offset * offset;
@@ -248,22 +235,22 @@ class NodeVarSampler {
                 float lastOffset = this.offset;
                 this.offset = offset;
 
-                ///////////////////////////////////////////////////////////////////////
                 // PD Controller
                 // Error in seconds error per sample of the loop
                 error = this.offset / node.timingNet().loopLength();
                 // Differential Error in seconds error change per sample of the loop
                 differentialError = (this.offset - lastOffset) / (recentBeat - lastBeatTime);
 
-                idealPeriod = (float) (period + weight * params.varSamplerGainProp * error
-                                       + Math.sqrt(weight * lastExpWeight) * params.varSamplerGainDiff * differentialError);
+                idealPeriod = (float) (period + weight * params.samplerGainProp * error
+                                       + Math.sqrt(weight * lastExpWeight) * params.samplerGainDiff * differentialError);
 
                 // Calculate expectation weighting for this period calculation
                 //idealPeriodWeight = Math.sqrt(weight * lastExpWeight);
                 lastExpWeight = weight;
 
-                hr = Utils.S_OK;
-                //////////////////////////////////////////////////////////////////////
+                result = true;
+
+                //
 
                 // Remember time of this beat for next time
                 lastBeatTime = recentBeat;
@@ -272,6 +259,6 @@ class NodeVarSampler {
             }
         }
 
-        return hr;
+        return result;
     }
 }

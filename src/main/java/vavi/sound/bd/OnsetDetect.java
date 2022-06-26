@@ -7,8 +7,9 @@ package vavi.sound.bd;
 import static vavi.sound.bd.Utils.params;
 
 
-// OnsetDetect.h: interface for the CBDOnsetDetect class.
-
+/**
+ * interface for the CBDOnsetDetect class.
+ */
 class OnsetDetect {
     // Half-Hanning (Raised Cosine) window
     // 100ms duration at 441Hz sampling rate
@@ -19,7 +20,7 @@ class OnsetDetect {
         0.0308f, 0.0198f, 0.0112f, 0.0050f, 0.0012f
     };
 
-    static final int nHalfHanning100ms = 44;
+    static final int halfHamming100ms = 44;
 
     // Number of steps of slope to calculate and normalization factor
     // Normalization is Sum(1/i), i=1 to Steps
@@ -27,86 +28,67 @@ class OnsetDetect {
 
     static final int ENV_STEPS = 10;
 
- // ***** Thresholds must be set with some degree of intelligence *****
+    // Thresholds must be set with some degree of intelligence
     public OnsetDetect() {
     }
 
-    public int createOnsetStream(AudioStream pStrmIn, DataStream pStrmOut, DataStream pStrmInternal) {
-        int hr = Utils.S_OK;
+    public void createOnsetStream(AudioStream in, DataStream out, DataStream internal) {
+        internal.releaseData();
 
-        pStrmInternal.releaseData();
+        DataStream decimated = new DataStream(), processed = new DataStream(); // TODO
 
-        DataStream StrmDecimated = null, StrmProcessed = null; // TODO
+        //
+        DSP.decimateRms(in, decimated, in.getSampleRate() / params.onsetSamplingRate);
 
-        //////
-        hr = DSP.RMSDecimate(pStrmIn, StrmDecimated, pStrmIn.getSampleRate() / params.onsetSamplingRate);
-        if (Utils.FAILED(hr))
-            return hr;
+        //
+        DSP.convolve(decimated, processed, aflHalfHanning100ms, halfHamming100ms);
 
-        //////
-        hr = DSP.Convolve(StrmDecimated, StrmProcessed, aflHalfHanning100ms, nHalfHanning100ms);
-        if (Utils.FAILED(hr))
-            return hr;
+        //
+        processEnvelope(processed, internal);
 
-        //////
-        hr = ProcessEnvelope(StrmProcessed, pStrmInternal);
-        if (Utils.FAILED(hr))
-            return hr;
-
-        //////
-        hr = ThresholdStream(pStrmInternal, StrmProcessed, pStrmOut);
-        if (Utils.FAILED(hr))
-            return hr;
-
-        return hr;
+        //
+        thresholdStream(internal, processed, out);
     }
 
-    protected int ProcessEnvelope(DataStream pStrmIn, DataStream pStrmOut) {
-        int hr = Utils.S_OK;
-
-        //////
+    /** @throws IllegalStateException creation failed */
+    protected void processEnvelope(DataStream in, DataStream out) {
         // Calculate onset detection threshold function
-        hr = pStrmOut.createData(pStrmIn);
-        if (Utils.FAILED(hr))
-            return hr;
+        out.createData(in);
 
-        float[] pflDataOut = pStrmOut.getFloatData();
-        float[] pflDataIn = pStrmIn.getFloatData();
-        for (int iSam = 0; iSam < pStrmOut.getNumSamples(); iSam++) {
+        float[] dataOut = out.getFloatData();
+        float[] dataIn = in.getFloatData();
+        for (int i = 0; i < out.getNumSamples(); i++) {
             // Seppanen/Klapuri
-            /* if( pflDataIn[iSam]+pflDataIn[iSam-1] > 0 )
-             * pflDataOut[iSam] = (pflDataIn[iSam]-pflDataIn[iSam-1]) /
-             * (pflDataIn[iSam]+pflDataIn[iSam-1]);
-             * else
-             * pflDataOut[iSam] = 0; */
+//            if (dataIn[i] + dataIn[i - 1] > 0)
+//                dataOut[i] = (dataIn[i] - dataIn[i - 1]) /
+//                        (dataIn[i] + dataIn[i - 1]);
+//            else
+//                dataOut[i] = 0;
 
             // Scheirer - LOUSY
-            //psDataOut[iSam] = 50*(psDataIn[iSam]-psDataIn[iSam-1]);
+            //dataOut[i] = 50 * (dataIn[i] - dataIn[i-1]);
 
             // Duxbury
-            /* double dResult = psDataIn[iSam];
-             * int iLeftLimit = max(iSam-30,0);
-             * for( int ii=iLeftLimit; ii<iSam; ii++ )
-             * {
-             * dResult -= (double)psDataIn[ii]/(iSam-ii);
-             * }
-             * psDataOut[iSam] = (signed short)(10*dResult); */
+//            double result = dataIn[i];
+//            int leftLimit = max(i - 30, 0);
+//            for (int ii = leftLimit; ii < i; ii++) {
+//                result -= (double) dataIn[ii] / (i - ii);
+//            }
+//            dataOut[i] = (short) (10 * result);
 
             // Duxbury/Klapuri
-            float flResult = 0;
-            int iLeftLimit = Math.max(iSam - ENV_STEPS, 0);
-            for (int ii = iLeftLimit; ii < iSam; ii++) {
-                float flTemp = (pflDataIn[iSam] - pflDataIn[ii]);
-                if (flTemp != 0) // Don't want to divide by zero!
-                    flResult += flTemp / ((iSam - ii) * (pflDataIn[iSam] + pflDataIn[ii]));
+            float result = 0;
+            int leftLimit = Math.max(i - ENV_STEPS, 0);
+            for (int j = leftLimit; j < i; j++) {
+                float temp = (dataIn[i] - dataIn[j]);
+                if (temp != 0) // Don't want to divide by zero!
+                    result += temp / ((i - j) * (dataIn[i] + dataIn[j]));
             }
-            pflDataOut[iSam] = flResult / ENV_NORMALIZE;
+            dataOut[i] = result / ENV_NORMALIZE;
 
             // Second Difference - LOUSY
-            //psDataOut[iSam] = 50*((psDataIn[iSam]-psDataIn[iSam-1])-(psDataIn[iSam-1]-psDataIn[iSam-2]));
+            //dataOut[i] = 50 * ((dataIn[i] - dataIn[i - 1]) - (dataIn[i - 1] - dataIn[i - 2]));
         }
-
-        return hr;
     }
 
     enum EState {
@@ -114,55 +96,48 @@ class OnsetDetect {
         ThreshLooking
     }
 
-    protected int ThresholdStream(DataStream pStrmIn, DataStream pStrmEnv, DataStream pStrmOut) {
-        int hr = Utils.S_OK;
+    /** @throws java.lang.IllegalStateException creation failed */
+    protected void thresholdStream(DataStream in, DataStream env, DataStream out) {
+        EState state = EState.ThreshLooking;
 
-        EState eState = EState.ThreshLooking;
-
-        //////
         // Calculate onset detection threshold function
-        hr = pStrmOut.createData(pStrmIn);
-        if (Utils.FAILED(hr))
-            return hr;
+        out.createData(in);
 
-        float[] pflDataOut = pStrmOut.getFloatData();
-        float[] pflDataIn = pStrmIn.getFloatData();
-        float[] pflEnv = pStrmEnv.getFloatData();
+        float[] dataOut = out.getFloatData();
+        float[] dataIn = in.getFloatData();
+        float[] dataEnv = env.getFloatData();
 
         // Calculate minimum distance to pass before another sample may be detected
-        int nSamMinDist = (int) (params.onsetDetectResetTime * pStrmIn.getSampleRate());
+        int samMinDist = (int) (params.onsetDetectResetTime * in.getSampleRate());
 
-        int iLastFound = 0;
-        for (int iSam = 0; iSam < pStrmOut.getNumSamples(); iSam++) {
-            if ((eState == EState.ThreshLooking) && (pflDataIn[iSam] > params.onsetDetectThreshHigh)) {
-                //////
+        int lastFound = 0;
+        for (int i = 0; i < out.getNumSamples(); i++) {
+            if ((state == EState.ThreshLooking) && (dataIn[i] > params.onsetDetectThreshHigh)) {
                 // Found onset, update state
-                eState = EState.ThreshFound;
-                iLastFound = iSam;
+                state = EState.ThreshFound;
+                lastFound = i;
 
                 // Determine the intensity of this onset - search for maximum level of envelope
                 // Intensity = env(max) - env(begin)
-                float flEnvMax = 0;
+                float envMax = 0;
 
-                while ((pflDataIn[iSam] > 0) && (iSam - iLastFound < nSamMinDist)) {
-                    if (pflEnv[iSam] > flEnvMax)
-                        flEnvMax = pflEnv[iSam];
-                    iSam++;
-                    pflDataOut[iSam] = 0; // Zero out these subsequent searched samples' onset sample
+                while ((dataIn[i] > 0) && (i - lastFound < samMinDist)) {
+                    if (dataEnv[i] > envMax)
+                        envMax = dataEnv[i];
+                    i++;
+                    dataOut[i] = 0; // Zero out these subsequent searched samples' onset sample
                 }
 
-                pflDataOut[iLastFound] = flEnvMax - pflEnv[iLastFound];
-            } else if ((eState == EState.ThreshFound)
-                       && ((pflDataIn[iSam] < params.onsetDetectThreshLow) || (iSam > iLastFound + nSamMinDist))) {
-                //////
-                eState = EState.ThreshLooking;
-                pflDataOut[iSam] = 0;
+                dataOut[lastFound] = envMax - dataEnv[lastFound];
+            } else if ((state == EState.ThreshFound)
+                       && ((dataIn[i] < params.onsetDetectThreshLow) || (i > lastFound + samMinDist))) {
+                //
+                state = EState.ThreshLooking;
+                dataOut[i] = 0;
             } else {
-                //////
-                pflDataOut[iSam] = 0;
+                //
+                dataOut[i] = 0;
             }
         }
-
-        return hr;
     }
 }

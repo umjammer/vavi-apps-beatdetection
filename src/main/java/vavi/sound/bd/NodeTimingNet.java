@@ -55,7 +55,7 @@ class NodeTimingNet {
         beatStrength = 0;
     }
 
-    public int initialize(int loopLen) {
+    public void initialize(int loopLen) {
         //////
         // Timing Net
         // Create loop of specified length
@@ -68,12 +68,10 @@ class NodeTimingNet {
         //////
         // BeatOutput
         loopLoc = loopLength();
-
-        return Utils.S_OK;
     }
 
     // Timing Net Execution
-    public int executeStep(float[] input) {
+    public void executeStep(float[] input) {
         // Translate onset value to Sigmoid input value (may need fuzzy stuff here later)
         if (input[0] < 0.05f) {
             input[0] = ((0.05f - input[0]) / 0.05f) * -0.5f;
@@ -95,7 +93,6 @@ class NodeTimingNet {
         netList.remove(0);
         netList.add(newValue);
 
-        ////////////////////////////////////
         // Update Loop stats
         // Decrement loop count
         loopLoc--;
@@ -106,9 +103,9 @@ class NodeTimingNet {
 
         //beatThresh = loopMean * (1 - params.flBeatOutputThresh) + loopMax * params.flBeatOutputThresh;    
         //beatThresh = Math.max(beatThresh, params.flBeatOutputMinThresh);
-        ////////////////////////////////////
 
-        //////
+        //
+
         // Update leaky integrator
         // Int = alpha * Int + beta * input
         //integrator = m_flIntDecay * integrator + m_flIntGrow * flNewValue;
@@ -116,11 +113,10 @@ class NodeTimingNet {
         //integrator = loopEnergy;
         //integrator = 0.9 * integrator + 0.1 * (loopMean*loopMean) * 50;
         integrator = 0.9f * integrator + 0.1f * loopEnergy * 10;
-
-        return Utils.S_OK;
     }
 
     // Beat Output Methods
+
     public float beatOutputPrediction() {
         return beatOutputPrediction;
     }

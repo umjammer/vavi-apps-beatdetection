@@ -27,7 +27,7 @@ class Node {
 
     protected NodeVarSampler varSampler;
 
-    protected float m_flPeriod;
+    protected float period;
 
     protected float previousBeatStrength;
 
@@ -36,10 +36,7 @@ class Node {
         previousBeatStrength = 0;
     }
 
-    public int initialize(float period) {
-        int hr = Utils.S_OK;
-
-        ///////////////////////
+    public void initialize(float period) {
         // Create subcomponents
         net = new NodeTimingNet(this);
 
@@ -47,117 +44,94 @@ class Node {
 
         varSampler = new NodeVarSampler(this);
 
-        /////////////////////////
         // Calculate initial loop length and sampling rate
-        int loopLen = (int) (period / params.varSamplerStartPeriod);
+        int loopLen = (int) (period / params.samplerStartPeriod);
         float samplerPeriod = period / loopLen;
         // Set the loop period based on initial stats
-        m_flPeriod = loopLen * samplerPeriod;
+        this.period = loopLen * samplerPeriod;
         // Set ideal period too
-        setIdealPeriod(m_flPeriod);
+        setIdealPeriod(this.period);
 
-        ///////////////////////////
         // Initialize Subcomponents
-        hr = net.initialize(loopLen);
-        if (Utils.FAILED(hr))
-            return hr;
+        net.initialize(loopLen);
 
-        hr = varSampler.Initialize(samplerPeriod);
-        if (Utils.FAILED(hr))
-            return hr;
+        varSampler.initialize(samplerPeriod);
 
-        hr = csn.Initialize();
-        if (Utils.FAILED(hr))
-            return hr;
+        csn.initialize();
 
-        ////////////////////////////
         // Track Performance
         selectedTime = 0;
         beatReEvaluations = 0;
-        avgPeriod = m_flPeriod;
+        avgPeriod = this.period;
         predictionError = 0;
         selectedBeats = 0;
-
-        return hr;
     }
 
-    public int executeStep(float[] inputBuffer) {
-        int hr = Utils.S_OK;
-
-        ///////
+    public void executeStep(float[] inputBuffer) {
         // Pass input to variable sampler
         boolean[] complete = new boolean[1];
         float[] sample = new float[1];
 
-        hr = varSampler.processInput(inputBuffer, complete, sample);
-        if (Utils.FAILED(hr))
-            return hr;
+        varSampler.processInput(inputBuffer, complete, sample);
 
-        ///////
         // Sample is complete and now flSample is valid, process rest of circuitry
         if (complete[0]) {
             // Generate next beat output before we modify the loop in any way
             net.generateBeatOutput();
 
             // Pass sample to TimingNet
-            hr = net.executeStep(sample);
+            net.executeStep(sample);
 
             // Update CSN
-            hr = csn.updateCSN(net.netEnergy());
+            csn.updateCSN(net.netEnergy());
         }
 
         if (selected && params.trackPerformance)
             selectedTime++;
-
-        return hr;
     }
 
-    public int commitStep() {
-        return csn.commitCSN();
+    public void commitStep() {
+        csn.commitCSN();
     }
 
     public void setIdealPeriod(float idealPeriod) {
-        m_flIdealPeriod = 0.5f * m_flIdealPeriod + 0.5f * idealPeriod;
+        this.idealPeriod = 0.5f * this.idealPeriod + 0.5f * idealPeriod;
     }
 
-    public int adjustPeriod() {
+    public void adjustPeriod() {
 
         float newPeriod;
 
-        //////////////////////////////////////////////////////////////////////
         // PD Period Variation from Ideal Period
         if (params.enableVarSampler)
             // New period is that which is dictated by variable sampler
             newPeriod = varSampler().idealSamplePeriod() * net.loopLength();
         else
             // No VS, use the IOI period as the new period
-            newPeriod = m_flIdealPeriod;
+            newPeriod = idealPeriod;
 
         // Adjustment strength is inversely proportional to the weighting from the VS expectation window
         float adjustStrength = 0.5f * (1 - varSampler().idealPeriodWeight());
         // Adjust new ideal period by AdjustStrength
-        float idealPeriodDiff = (newPeriod - m_flIdealPeriod) * adjustStrength;
+        float idealPeriodDiff = (newPeriod - idealPeriod) * adjustStrength;
 
-        newPeriod = m_flIdealPeriod + idealPeriodDiff;
-        //////////////////////////////////////////////////////////////////////
+        newPeriod = idealPeriod + idealPeriodDiff;
+
+        //
 
         // Set the new period
-        m_flPeriod = newPeriod;
-
-        float newSamplingPeriod = m_flPeriod / net.loopLength();
+        period = newPeriod;
 
         // Set new sampling rate
-        varSampler.period = newSamplingPeriod;
+        varSampler.period = period / net.loopLength();
 
         // Track Performance
-        avgPeriod = 0.9f * avgPeriod + 0.1f * m_flPeriod;
-
-        return Utils.S_OK;
+        avgPeriod = 0.9f * avgPeriod + 0.1f * period;
     }
 
     // Accessors per sae
     public float period() {
-        return m_flPeriod;
+        return period;
     }
 
     public float csnOutput() {
@@ -185,13 +159,11 @@ class Node {
         return varSampler;
     }
 
-    public float m_flIdealPeriod;
+    public float idealPeriod;
 
     // Performance Measures
-    public int calculatePerformanceMeasures() {
+    public void calculatePerformanceMeasures() {
         predictionError /= selectedBeats;
         selectedTime /= params.onsetSamplingRate;
-
-        return Utils.S_OK;
     }
 }

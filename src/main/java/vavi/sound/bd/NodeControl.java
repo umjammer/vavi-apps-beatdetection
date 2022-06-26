@@ -23,17 +23,13 @@ class NodeControl {
         maxCSNTimeout = 0;
     }
 
-    public int initialize() {
+    public void initialize() {
         // Reset list of nets
         nodes.clear();
-
-        return Utils.S_OK;
     }
 
-    public int executeStep(float[] inputBuffer, IOIStats stats) {
-        int hr = Utils.S_OK;
+    public void executeStep(float[] inputBuffer, IOIStatCollector.IOIStats stats) {
 
-        //////////////////////////////////////////////////////////////////
         // REMOVE, ADJUST and MARK
         // Compare Dominant IOI list with current timing net periods
         // Remove, adjust period, and reference count as necessary
@@ -42,7 +38,7 @@ class NodeControl {
             float idealPeriod = 0;
 
             // Search dominant list for this loop length
-            for (IOIPeriodEntry dom : stats.dominantIOIs) {
+            for (IOIStatCollector.IOIPeriodEntry dom : stats.dominantIOIs) {
                 // If found a Node with a similar period (within tolerance)
                 // we've found a match, so don't remove this node and clear
                 // the similar node period entry from the dominant list
@@ -81,28 +77,24 @@ class NodeControl {
             }
         }
 
-        //////////////////////////////////////////////////////////////////////
         // ADD
         // If there is anything left in the dominant IOI list, it should be added
-        for (IOIPeriodEntry dom : stats.dominantIOIs) {
+        for (IOIStatCollector.IOIPeriodEntry dom : stats.dominantIOIs) {
             if (dom.refCount == 0) {
-                ////////////
                 // No references, add a node
 //                float period = dom.period;
-                hr = addNode(dom.period);
+                addNode(dom.period);
             } else if (dom.refCount > 1) {
                 // Debug
 //                float P = dom.period;
 //                int ref = dom.refCount;
 //                float E = dom.highestEnergy;
 
-                ///////////
                 // More than one reference, remove all but most energetic node
                 for (int i = 0; i < nodes.size();) {
                     if (Math.abs(nodes.get(i).period() - dom.period) < Utils.params.nodeMaxDiff) {
                         // Matching node to dominant IOI, is highest energy?
                         if (nodes.get(i).csnOutput() < dom.highestEnergy) {
-                            /////////////////////////////////
                             // No, so remove this weaker node
                             Node tempNode = nodes.get(i);
                             i++;
@@ -126,11 +118,10 @@ class NodeControl {
             dom.highestEnergy = 0;
         }
 
-        /////////////////////////////////////////////////////////////////////////
         // UPDATE
         // Update Loops
         for (Node node : nodes) {
-            hr = node.executeStep(inputBuffer);
+            node.executeStep(inputBuffer);
         }
 
         // Commit Step - Lock in CSN updated values, find top CSN Output
@@ -139,7 +130,7 @@ class NodeControl {
 
         for (Node node : nodes) {
             // Commit
-            hr = node.commitStep();
+            node.commitStep();
 
             float csnOutput = node.csnOutput();
 
@@ -157,9 +148,7 @@ class NodeControl {
 //            }
         }
 
-        ////////////
         // Option 2
-        ////////////
         if (null != nodeBestCandidate && null == bestNode) {
             bestNode = nodeBestCandidate;
         }
@@ -187,8 +176,6 @@ class NodeControl {
 
         if (bestNode != null && Utils.params.trackPerformance)
             bestNode.selected = true;
-
-        return hr;
     }
 
     public Node bestNode() {
@@ -198,12 +185,10 @@ class NodeControl {
     public List<Node> nodes;
 
     // Insert new timing net and create links to all other nets
-    protected int addNode(float nodePeriod) {
-        int hr;
-
+    protected void addNode(float nodePeriod) {
         Node newNode = new Node();
         // Init
-        hr = newNode.initialize(nodePeriod);
+        newNode.initialize(nodePeriod);
 
         // Create Links
         for (Node node : nodes) {
@@ -214,7 +199,5 @@ class NodeControl {
 
         // Add new net eo list
         nodes.add(newNode);
-
-        return hr;
     }
 }

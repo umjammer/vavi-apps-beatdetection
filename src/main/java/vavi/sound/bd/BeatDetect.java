@@ -12,16 +12,9 @@ class BeatDetect {
 
     static BeatDetect theApp;
 
-    interface View {
-        void showWaiting();
-        void hideWaiting();
-        String chooseFile();
-        void showError(Throwable t);
-    }
-
     public BeatDetect() {
-        view = new BeatDetectView();
-        doc = new BeatDetectDoc(theApp.view);
+        doc = new BeatDetectDoc();
+        view = new BeatDetectView(doc);
         mainFrame = new MainFrame();
     }
 
