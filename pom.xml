@@ -7,31 +7,30 @@
 
   <profiles>
     <profile>
-      <id>bd</id>
-      <activation>
-        <property>
-          <name>bd</name>
-          <value/>
-        </property>
-      </activation>
+      <!-- mvn -P exec antrun:run -Dinfile='file' -->
+      <id>exec</id>
       <build>
         <plugins>
           <plugin>
-            <!-- exec:exec -->
-            <!-- $ mvn -P bd exec:java -Dexec.args='"file"' -->
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>1.6.0</version>
-            <executions>
-              <execution>
-                <goals>
-                  <goal>java</goal>
-                </goals>
-              </execution>
-            </executions>
+            <!-- GOOD: fork: OK, test jars: OK, user args, default args: OK -->
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-antrun-plugin</artifactId>
+            <version>3.1.0</version>
+            <goals>
+              <goal>run</goal>
+            </goals>
             <configuration>
-              <mainClass>vavi.sound.bd.BeatDetect</mainClass>
-              <classpathScope>test</classpathScope>
+              <target>
+                <java classname="vavi.sound.bd.BeatDetect" fork="true">
+                  <classpath>
+                    <path refid="maven.compile.classpath"/>
+                    <path refid="maven.test.classpath"/>
+                  </classpath>
+                  <jvmarg value="-Djava.util.logging.config.file=${project.build.testOutputDirectory}/logging.properties" />
+                  <jvmarg value="-Dapple.laf.useScreenMenuBar=true" />
+                  <jvmarg value="-Dswing.defaultlaf=com.formdev.flatlaf.FlatLightLaf" />
+                </java>
+              </target>
             </configuration>
           </plugin>
         </plugins>
@@ -42,8 +41,9 @@
   <build>
     <plugins>
       <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.9.0</version>
+        <version>3.10.1</version>
         <configuration>
           <source>1.8</source>
           <target>1.8</target>
@@ -82,6 +82,12 @@
       <groupId>com.github.umjammer</groupId>
       <artifactId>vavi-commons</artifactId>
       <version>1.1.6</version>
+    </dependency>
+
+    <dependency>
+      <groupId>com.formdev</groupId>
+      <artifactId>flatlaf</artifactId>
+      <version>1.6.1</version>
     </dependency>
 
     <dependency>
