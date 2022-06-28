@@ -77,12 +77,13 @@ class DSP {
 
 //        boolean fDone = false;
         int i = 0;
-        int c = 0;
+        int inP = 0;
+        int outP = 0;
         while (i < inSamplesPlusDelay) {
             // Input value from input stream or zero if past end of input stream
             x = 0;
             if (i < inSamples)
-                x = dataIn[c++];
+                x = dataIn[inP++];
 
             // Calculate
             middle = (x - delay[0] * dA[1] - delay[1] * dA[2] - delay[2] * dA[3] - delay[3] * dA[4] - delay[4] * dA[5]
@@ -95,7 +96,7 @@ class DSP {
             // Set output value to stream if no reverse group delay, or only start setting to
             // stream after group delay has passed
             if (i >= coeff.nSamplesDelay)
-                dataOut[c++] = (float) y;
+                dataOut[outP++] = (float) y;
 
             // Update Delays
             delay[5] = delay[4];

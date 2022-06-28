@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.ShortBuffer;
 
+import vavi.util.Debug;
+
 
 class DataStream {
 
@@ -50,12 +52,12 @@ class DataStream {
 
     /** @throws IllegalArgumentException copyFrom is null */
     public void createData(final DataStream copyFrom) {
-        if (null != copyFrom)
+        if (null != copyFrom) {
             createData(copyFrom.getBitsPerSample(),
-                       copyFrom.getSampleRate(),
-                       copyFrom.getNumSamples(),
-                       copyFrom.isNormalized());
-        else
+                    copyFrom.getSampleRate(),
+                    copyFrom.getNumSamples(),
+                    copyFrom.isNormalized());
+        } else
             throw new IllegalArgumentException("copyFrom is null");
     }
 
@@ -153,7 +155,10 @@ class DataStream {
     }
 
     public float[] getFloatData() {
-        return data.asFloatBuffer().array();
+        FloatBuffer fb = data.asFloatBuffer();
+        float[] a = new float[fb.limit()];
+        fb.get(a);
+        return a;
     }
 
     public boolean isValid() {
@@ -174,5 +179,17 @@ class DataStream {
             // Copy over data and pad end with zeros - not quite efficient but who cares...
             data = ByteBuffer.allocate(samples * (bitsPerSample / 8));
         }
+    }
+
+    @Override
+    public String toString() {
+        return "DataStream{" +
+                "channels=" + channels +
+                ", bitsPerSample=" + bitsPerSample +
+                ", sampleRate=" + sampleRate +
+                ", samples=" + samples +
+                ", normalized=" + normalized +
+                ", data=" + data +
+                '}';
     }
 }

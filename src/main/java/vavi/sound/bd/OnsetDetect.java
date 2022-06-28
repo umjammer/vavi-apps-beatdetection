@@ -11,9 +11,9 @@ import static vavi.sound.bd.Utils.params;
  * interface for the CBDOnsetDetect class.
  */
 class OnsetDetect {
-    // Half-Hanning (Raised Cosine) window
+    // Half-Hamming (Raised Cosine) window
     // 100ms duration at 441Hz sampling rate
-    static final float[] aflHalfHanning100ms = {
+    static final float[] aflHalfHamming100ms = {
         0.9997f, 0.9972f, 0.9922f, 0.9848f, 0.9750f, 0.9628f, 0.9483f, 0.9315f, 0.9126f, 0.8917f, 0.8688f, 0.8441f, 0.8176f,
         0.7896f, 0.7601f, 0.7294f, 0.6974f, 0.6645f, 0.6308f, 0.5965f, 0.5616f, 0.5265f, 0.4912f, 0.4559f, 0.4209f, 0.3863f,
         0.3522f, 0.3189f, 0.2865f, 0.2551f, 0.2250f, 0.1962f, 0.1689f, 0.1433f, 0.1195f, 0.0976f, 0.0776f, 0.0598f, 0.0442f,
@@ -29,8 +29,6 @@ class OnsetDetect {
     static final int ENV_STEPS = 10;
 
     // Thresholds must be set with some degree of intelligence
-    public OnsetDetect() {
-    }
 
     public void createOnsetStream(AudioStream in, DataStream out, DataStream internal) {
         internal.releaseData();
@@ -41,7 +39,7 @@ class OnsetDetect {
         DSP.decimateRms(in, decimated, in.getSampleRate() / params.onsetSamplingRate);
 
         //
-        DSP.convolve(decimated, processed, aflHalfHanning100ms, halfHamming100ms);
+        DSP.convolve(decimated, processed, aflHalfHamming100ms, halfHamming100ms);
 
         //
         processEnvelope(processed, internal);

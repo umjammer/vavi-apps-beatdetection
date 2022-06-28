@@ -5,6 +5,7 @@
 package vavi.sound.bd;
 
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -12,30 +13,31 @@ import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.JButton;
-import javax.swing.JDialog;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+
+import vavi.util.Debug;
 
 
 class BeatDetectView extends JPanel {
     static final int RULER_HEIGHT = 20;
 
-    JMenuItem ID_APP_ABOUT = new JMenuItem();
-    JMenuItem ID_FILE_NEW =  new JMenuItem();
-    JMenuItem ID_FILE_OPEN = new JMenuItem();
+    JMenuItem ID_APP_ABOUT = new JMenuItem("About");
+    JMenuItem ID_FILE_NEW =  new JMenuItem("New");
+    JMenuItem ID_FILE_OPEN = new JMenuItem("Open");
 
-    JButton ID_VIEW_ZOOMIN = new JButton();
-    JButton ID_VIEW_ZOOMOUT = new JButton();
-    JButton IDC_VIEW_INPUT_CHECK = new JButton();
-    JButton IDC_VIEW_ONSET_CHECK = new JButton();
-    JButton IDC_VIEW_ONSET2_CHECK = new JButton();
-    JButton IDC_VIEW_BEATOUT_CHECK = new JButton();
-    JButton IDC_VIEW_TEMPOOUT_CHECK = new JButton();
-    JButton IDC_VIEW_PERIODOUT_CHECK = new JButton();
-    JButton IDC_VIEW_INFOOUT_CHECK = new JButton();
+    JMenuItem ID_VIEW_ZOOMIN = new JMenuItem("Zoom In");
+    JMenuItem ID_VIEW_ZOOMOUT = new JMenuItem("Zoom Out");
+    JCheckBox IDC_VIEW_INPUT_CHECK = new JCheckBox("Input");
+    JCheckBox IDC_VIEW_ONSET_CHECK = new JCheckBox("Onset");
+    JCheckBox IDC_VIEW_ONSET2_CHECK = new JCheckBox("Onset2");
+    JCheckBox IDC_VIEW_BEATOUT_CHECK = new JCheckBox("Beat Out");
+    JCheckBox IDC_VIEW_TEMPOOUT_CHECK = new JCheckBox("Tempo Out");
+    JCheckBox IDC_VIEW_PERIODOUT_CHECK = new JCheckBox("Period Out");
+    JCheckBox IDC_VIEW_INFOOUT_CHECK = new JCheckBox("Info Out");
 
     BeatDetectDoc doc;
 
@@ -44,24 +46,27 @@ class BeatDetectView extends JPanel {
 
         zoom = 0.016;
 
+        setPreferredSize(new Dimension(640, 400));
 //        JPanel dialogBar = mainFrame.getDialogBar();
 
         ID_APP_ABOUT.addActionListener(this::onAppAbout);
         ID_FILE_NEW.addActionListener(this::onSaveDocument);
         ID_FILE_OPEN.addActionListener(this::onOpenDocument);
 
-        IDC_VIEW_INPUT_CHECK.setEnabled(true);
+        IDC_VIEW_INPUT_CHECK.setSelected(true);
         IDC_VIEW_INPUT_CHECK.addActionListener(this::onViewStreamChange);
-        IDC_VIEW_ONSET_CHECK.setEnabled(true);
+        IDC_VIEW_ONSET_CHECK.setSelected(true);
         IDC_VIEW_ONSET_CHECK.addActionListener(this::onViewStreamChange);
-        IDC_VIEW_BEATOUT_CHECK.setEnabled(true);
+        IDC_VIEW_BEATOUT_CHECK.setSelected(true);
         IDC_VIEW_BEATOUT_CHECK.addActionListener(this::onViewStreamChange);
-        IDC_VIEW_TEMPOOUT_CHECK.setEnabled(true);
+        IDC_VIEW_TEMPOOUT_CHECK.setSelected(true);
         IDC_VIEW_TEMPOOUT_CHECK.addActionListener(this::onViewStreamChange);
-        IDC_VIEW_PERIODOUT_CHECK.setEnabled(true);
+        IDC_VIEW_PERIODOUT_CHECK.setSelected(true);
         IDC_VIEW_PERIODOUT_CHECK.addActionListener(this::onViewStreamChange);
 
+        IDC_VIEW_ONSET2_CHECK.setSelected(false);
         IDC_VIEW_ONSET2_CHECK.addActionListener(this::onViewStreamChange);
+        IDC_VIEW_INFOOUT_CHECK.setSelected(false);
         IDC_VIEW_INFOOUT_CHECK.addActionListener(this::onViewStreamChange);
 
         ID_VIEW_ZOOMIN.addActionListener(this::onViewZoomIn);
@@ -70,8 +75,8 @@ class BeatDetectView extends JPanel {
         onViewStreamChange(null);
     }
 
+    @Override
     public void paint(Graphics g) {
-
         Graphics2D g2d = (Graphics2D) g;
 
         Rectangle viewRect = new Rectangle();
@@ -80,7 +85,7 @@ class BeatDetectView extends JPanel {
         List<DataStream> streams = new ArrayList<>();
         if (createStreamsList(streams)) {
             // Draw Time Ruler
-            Rectangle rulerRect = viewRect;
+            Rectangle rulerRect = (Rectangle) viewRect.clone();
             rulerRect.y = rulerRect.y;
             rulerRect.height = RULER_HEIGHT;
             viewRect.y = rulerRect.y + rulerRect.height;
@@ -92,7 +97,7 @@ class BeatDetectView extends JPanel {
             int streamsCount = streams.size();
 
             int streamHeight = viewRect.height / streamsCount;
-            Rectangle streamRect = viewRect;
+            Rectangle streamRect = (Rectangle) viewRect.clone();
             streamRect.height = streamHeight - streamRect.y;
 
             for (DataStream stream : streams) {
@@ -113,14 +118,18 @@ class BeatDetectView extends JPanel {
         int centreLine = (rect.y + rect.height) / 2;
 
         // Draw horizontal line at zero
-        g2d.setColor(new Color(0x00, 0xFF, 0x00, 0));
-        Rectangle drawRect = rect;
+        g2d.setColor(new Color(0x00, 0xFF, 0x00));
+        Rectangle drawRect = (Rectangle) rect.clone();
         drawRect.y = centreLine;
         drawRect.width = 1;
         g2d.fillRect(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
         // Hurt Casting!
         // Assume Float
+        if (!stream.isValid()) {
+//Debug.println("not valid: " + stream);
+            return;
+        }
         float[] data = stream.getFloatData();
 
         Rectangle clipRect = g2d.getClipBounds();
@@ -149,15 +158,15 @@ class BeatDetectView extends JPanel {
                 drawRect.x = x;
                 drawRect.width = 1;
                 drawRect.y = centreLine - (int) (max * sampleScale);
-                drawRect.width = 1;
+                drawRect.height = 1;
 
                 if (max > 1) {
-                    g2d.setColor(new Color(0x00, 0x90, 0x00, 0));
+                    g2d.setColor(new Color(0x00, 0x90, 0x00));
                 } else {
                     if (scrollError)
-                        g2d.setColor(new Color(0x00, 0x00, 0xff, 0));
+                        g2d.setColor(new Color(0x00, 0x00, 0xff));
                     else
-                        g2d.setColor(new Color(0xcc, 0x00, 0x00, 0));
+                        g2d.setColor(new Color(0xcc, 0x00, 0x00));
                 }
                 g2d.fillRect(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
@@ -185,48 +194,49 @@ class BeatDetectView extends JPanel {
     }
 
     void getViewRect(Rectangle rect) {
-        Dimension totalSize = getMaximumSize();
+        Dimension totalSize = getSize();
 
         rect.y = 0;
         rect.x = 0;
         rect.height = totalSize.height;
         rect.width = totalSize.width;
+//Debug.print("viewRect: " + rect);
     }
 
     boolean createStreamsList(List<DataStream> list) {
         if (null == list)
-            throw new IllegalArgumentException("pList");
+            throw new NullPointerException("list");
 
 //        JPanel dialogBar = mainFrame.getDialogBar();
 
         // Clear out list
         list.clear();
 
-        if (IDC_VIEW_INPUT_CHECK.isEnabled()) {
+        if (IDC_VIEW_INPUT_CHECK.isSelected()) {
             list.add(doc.input);
         }
 
-        if (IDC_VIEW_ONSET_CHECK.isEnabled()) {
+        if (IDC_VIEW_ONSET_CHECK.isSelected()) {
             list.add(doc.onsetOutput);
         }
 
-        if (IDC_VIEW_ONSET2_CHECK.isEnabled()) {
+        if (IDC_VIEW_ONSET2_CHECK.isSelected()) {
             list.add(doc.onsetInternal);
         }
 
-        if (IDC_VIEW_BEATOUT_CHECK.isEnabled()) {
+        if (IDC_VIEW_BEATOUT_CHECK.isSelected()) {
             list.add(doc.beatOutput);
         }
 
-        if (IDC_VIEW_TEMPOOUT_CHECK.isEnabled()) {
+        if (IDC_VIEW_TEMPOOUT_CHECK.isSelected()) {
             list.add(doc.beatTempo);
         }
 
-        if (IDC_VIEW_PERIODOUT_CHECK.isEnabled()) {
+        if (IDC_VIEW_PERIODOUT_CHECK.isSelected()) {
             list.add(doc.beatPeriod);
         }
 
-        if (IDC_VIEW_INFOOUT_CHECK.isEnabled()) {
+        if (IDC_VIEW_INFOOUT_CHECK.isSelected()) {
             list.add(doc.beatInfo);
         }
 
@@ -235,11 +245,11 @@ class BeatDetectView extends JPanel {
 
     void drawTimeRuler(Graphics2D g2d, Rectangle rect) {
         // Draw Background
-        g2d.setColor(new Color(0xBB, 0xBB, 0xBB, 0));
+        g2d.setColor(new Color(0xBB, 0xBB, 0xBB));
         g2d.fillRect(rect.x, rect.y, rect.width, rect.height);
 
         // Draw horizontal marker lines
-        g2d.setColor(new Color(0x00, 0x00, 0x00, 0));
+        g2d.setColor(new Color(0x00, 0x00, 0x00));
 
         Rectangle clipRect = g2d.getClipBounds();
         int startPixel = clipRect.x;
@@ -305,10 +315,8 @@ class BeatDetectView extends JPanel {
         scrollError = size.width > 32767;
     }
 
-    void onAppAbout(ActionEvent ev) {
-        JDialog aboutDialog = new JDialog();
-        aboutDialog.setModal(true);
-        aboutDialog.setVisible(true);
+    private void onAppAbout(ActionEvent ev) {
+        JOptionPane.showMessageDialog(null, "beat detect");
     }
 
     enum UINT {
@@ -318,35 +326,33 @@ class BeatDetectView extends JPanel {
         ID_INDICATOR_SCRL,
     }
 
-    JPanel working = new JPanel(); // "IDD_WORKING"
-
-    String chooseFile() {
+    private String chooseFile() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.showOpenDialog(null);
         return fileChooser.getSelectedFile().getPath();
     }
 
-    void onOpenDocument(ActionEvent ev) {
+    private void onOpenDocument(ActionEvent ev) {
         try {
             String filename = chooseFile();
-            working.setVisible(true);
-            doc.onOpenDocument(filename);
-            working.setVisible(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+            doc.openDocument(filename);
+            setCursor(Cursor.getPredefinedCursor(Cursor.DEFAULT_CURSOR));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    void onSaveDocument(ActionEvent ev) {
+    private void onSaveDocument(ActionEvent ev) {
         try {
             String filename = chooseFile();
-            doc.onSaveDocument(filename);
+            doc.saveDocument(filename);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    void onSaveOnsets(ActionEvent ev) {
+    private void onSaveOnsets(ActionEvent ev) {
         try {
             String filename = chooseFile();
             doc.onSaveOnsets(filename);

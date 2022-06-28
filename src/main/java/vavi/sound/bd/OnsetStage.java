@@ -4,6 +4,8 @@
 
 package vavi.sound.bd;
 
+import java.util.stream.IntStream;
+
 import static vavi.sound.bd.Utils.params;
 
 
@@ -77,6 +79,8 @@ class OnsetStage {
     protected DataStream[] onsets = new DataStream[NUM_BANDS];
 
     public OnsetStage() {
+        IntStream.range(0, bandInputs.length).forEach(i -> bandInputs[i] = new AudioStream());
+        IntStream.range(0, onsets.length).forEach(i -> onsets[i] = new DataStream());
     }
 
     public void createOnsetStream(AudioStream in, DataStream out, DataStream internal) {

@@ -4,6 +4,7 @@
 
 package vavi.sound.bd;
 
+import java.util.ArrayList;
 import java.util.List;
 
 
@@ -182,7 +183,7 @@ class NodeControl {
         return bestNode;
     }
 
-    public List<Node> nodes;
+    public List<Node> nodes = new ArrayList<>();
 
     // Insert new timing net and create links to all other nets
     protected void addNode(float nodePeriod) {

@@ -4,6 +4,7 @@
 
 package vavi.sound.bd;
 
+import java.util.ArrayList;
 import java.util.List;
 import static vavi.sound.bd.Utils.params;
 
@@ -23,14 +24,14 @@ class IOIStatCollector {
 
         float[] ioiHists = new float[IOISTATS_HISTLEN];
 
-        List<IOIPeriodEntry> dominantIOIs;
+        List<IOIPeriodEntry> dominantIOIs = new ArrayList<>();
     }
 
     static final int IOISTATS_PARZEN_HALF_WINDOW_SIZE = 5;
 
     static final int IOISTATS_PARZEN_WINDOW_SIZE = (IOISTATS_PARZEN_HALF_WINDOW_SIZE * 2 + 1);
 
-    protected List<Integer> onsets;
+    protected List<Integer> onsets = new ArrayList<>();
 
     protected int lastOnsetDelay;
 

@@ -8,6 +8,8 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.stream.IntStream;
 
+import vavi.util.Debug;
+
 
 class BeatDetectDoc {
 
@@ -40,7 +42,7 @@ class BeatDetectDoc {
 
     public DataStream beatInfo;
 
-    public boolean onNewDocument() {
+    public boolean newDocument() {
 
         // Release all streams
         input.releaseData();
@@ -59,7 +61,7 @@ class BeatDetectDoc {
         return true;
     }
 
-    public void onOpenDocument(String pathName) throws IOException {
+    public void openDocument(String pathName) throws IOException {
         //
         // Beat Processing...
         //
@@ -85,12 +87,12 @@ class BeatDetectDoc {
         if (BeatDetect.theApp.automate) {
             // Save output
             String[] saveName = pathName.split("\\.");
-            onSaveDocument(saveName[0] + "_Output" + saveName[1]);
+            saveDocument(saveName[0] + "_Output" + saveName[1]);
         }
     }
 
     /** @throws IllegalStateException creation failed */
-    public void onSaveDocument(String pathName) throws IOException {
+    public void saveDocument(String pathName) throws IOException {
         // Temporary Data Saver
         //onsetLPF.saveToWaveFile(pathName);
 
